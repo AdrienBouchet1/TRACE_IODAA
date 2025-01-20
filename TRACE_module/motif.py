@@ -270,7 +270,10 @@ def get_list_interactions(
      # Algorithm 1 of the paper (cf. doi at the beginning of the code)
 #############################################################################
 
-def count_instance_motif(sequence: Sequence, motif: Motif, delta: int) -> int:
+def interaction_in_motif(interaction : Interaction, motif : Motif):
+    return Arc(*interaction.inds, oriented=motif.oriented) in motif._list_arc
+
+def count_instance_motif(sequence_raw: Sequence, motif: Motif, delta: int, oriented_graph : bool = False) -> tuple[int, dict[Motif,int]]:
     """
     Fonction qui permet de calculer le nombre d'occurences du motif `motif` dans la séquence d'intéraction `sequence` dans une fenetre de temps `delta`
 
@@ -286,8 +289,12 @@ def count_instance_motif(sequence: Sequence, motif: Motif, delta: int) -> int:
 
     """
     # On tri la séquence d'intéraction 
-    sequence.sort()
+    sequence_raw.sort()
     delta = np.timedelta64(delta,"s")
+
+    # Filtre de la séquence d'intéraction 
+    sequence = [inter for inter in sequence_raw if interaction_in_motif(inter,motif)]
+    print(f"Sequence filtered (len : {len(sequence)})")
 
     # On récupère la longueur du motif :
     l_motif = len(motif)
@@ -308,13 +315,13 @@ def count_instance_motif(sequence: Sequence, motif: Motif, delta: int) -> int:
     for end in tqdm(range(len(sequence))):
         while sequence[start].ts + delta < sequence[end].ts :
             # Decrement Counts 
-            counts[Motif(sequence[start].inds, oriented= motif._oriented)] -= 1
+            counts[Motif(Arc(*sequence[start].inds), oriented= motif._oriented)] -= 1
             for suffix in counts.keys() :
                 # Si le motif est trop grand
                 if len(suffix) >= l_motif - 1 : 
                     continue
                 else :
-                    concat = suffix.add_suffix(sequence[start].inds)
+                    concat = suffix.add_suffix(Arc(*sequence[start].inds, oriented=oriented_graph))
                     if concat not in counts.keys() : continue #Motif n'est pas dans les sous motifs que l'on recherche
                     else :
                         counts[concat] -= counts[suffix] #Motif connu
@@ -324,10 +331,10 @@ def count_instance_motif(sequence: Sequence, motif: Motif, delta: int) -> int:
         for prefix in reversed(list(counts.keys())) : 
             if len(prefix) >= l_motif : continue
             else : 
-                concat = prefix + sequence[end].inds
+                concat = prefix + Arc(*sequence[end].inds, oriented= motif.oriented)
                 if concat not in counts.keys() : continue #Motif n'est pas dans les sous motifs que l'on recherche
                 else : counts[concat] += counts[prefix]
-        counts[Motif(sequence[end].inds, oriented= motif._oriented)] += 1
+        counts[Motif(Arc(*sequence[end].inds), oriented= motif.oriented)] += 1
         
         # Ajout des données de counts dans le dictionnaire
         for motif in submotifs : 
@@ -369,7 +376,7 @@ if __name__ == "__main__" :
     M1 = Motif(
         Arc("a","b"),
         Arc("a","c"),
-        Arc("c","a"),
+        Arc("b","c"),
         oriented= False)
 
     M2 = Motif(

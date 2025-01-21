@@ -1,6 +1,10 @@
 """Fonctions utiles
 """
 
+from functools import wraps
+import time
+
+
 ### _________________ IMPORTATION DES LIBRAIRIES _________________
 from itertools import chain, combinations
 
@@ -67,3 +71,15 @@ def subset_int(liste_num : list[int]) -> list :
         list: List de toutes les combinaisons de subsets
     """
     return powerset(liste_num)[1:]
+    
+
+def timeit(func):
+    @wraps(func)
+    def timeit_wrapper(*args, **kwargs):
+        start_time = time.perf_counter()
+        result = func(*args, **kwargs)
+        end_time = time.perf_counter()
+        total_time = end_time - start_time
+        print(f'Function {func.__name__}{args} {kwargs} Took {total_time:.4f} seconds')
+        return result
+    return timeit_wrapper

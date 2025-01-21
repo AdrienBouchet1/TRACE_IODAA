@@ -5,6 +5,7 @@ from tqdm import tqdm
 from TRACE_module.utils import *
 import numpy as np
 from typing import List
+from collections import Counter
 #############################################################################
                         # Types definition
 #############################################################################
@@ -200,11 +201,54 @@ class Motif:
         return Motif(*((arc,) + self._list_arc), oriented= self._oriented)
 
     
-    def graph(self):
+    def graph(self, r_max : int):
         """
-        Représentation graphique du motif
+        Fonction qui génère le code Latex d'un motif donné. à utiliser avec le template suivant : 
+        
+        \documentclass{standalone}
+        \usepackage{tikz}
+        \begin{document}
+        \begin{tikzpicture}
+            .... 
+        \end{tikzpicture}
+        \end{document}
+
+        
+        Args : r_max (int) : rayon max du cercle de coordonnées
         """
-        pass
+
+        # Retrieving all the different nodes
+
+        r_max = r_max/2
+
+        set_nodes = set()
+        for arc in self._list_arc : 
+            set_nodes.add(arc.ind1)
+            set_nodes.add(arc.ind2)
+
+        set_nodes = list(set_nodes)
+        nb_nodes = len(set_nodes)
+
+        # Coords for the different nodes
+        t = np.linspace(0, 2*np.pi, nb_nodes, endpoint=False)
+        x = r_max * np.cos(t) + r_max
+        y = r_max * np.sin(t) + r_max
+        list_command = []
+        for node, coords in zip(set_nodes, zip(x,y)):
+            coords = (float(round(coords[0],3)), float(round(coords[1],3)))
+            command = f"\\node[draw, circle] ({node}) at {coords} {{{node}}};"
+            list_command.append(command)
+        # LaTex Command for nodes creation
+        nodes_command = "\n".join(list_command)
+
+        ## Implementation des différents arcs
+        list_arc = []
+        for arc in self._list_arc : 
+            command = f"\\draw[-, thick] ({arc.ind1}) to ({arc.ind2});"
+            list_arc.append(command)
+        arc_command = "\n".join(list_arc) 
+
+        print("\n".join((nodes_command,arc_command)))
 
     def gen_submotif(self):
         """Fonction du génére l'ensemble des sous motifs du motif
@@ -271,9 +315,18 @@ def get_list_interactions(
 #############################################################################
 
 def interaction_in_motif(interaction : Interaction, motif : Motif):
+    """Returns True if an arc (from the interaction) is in a motif
+
+    Args:
+        interaction (Interaction): Interaction
+        motif (Motif): Motif instance
+
+    Returns:
+        bool: True if the Interaction is in the Motif. False if not.
+    """
     return Arc(*interaction.inds, oriented=motif.oriented) in motif._list_arc
 
-def count_instance_motif(sequence_raw: Sequence, motif: Motif, delta: int, oriented_graph : bool = False) -> tuple[int, dict[Motif,int]]:
+def count_instance_motif(sequence_raw: Sequence, motif: Motif, delta: int, oriented_graph : bool = False) -> tuple[int, dict[Motif,int], list[Interaction]]:
     """
     Fonction qui permet de calculer le nombre d'occurences du motif `motif` dans la séquence d'intéraction `sequence` dans une fenetre de temps `delta`
 
@@ -318,13 +371,13 @@ def count_instance_motif(sequence_raw: Sequence, motif: Motif, delta: int, orien
             counts[Motif(Arc(*sequence[start].inds), oriented= motif._oriented)] -= 1
             for suffix in counts.keys() :
                 # Si le motif est trop grand
-                if len(suffix) >= l_motif - 1 : 
+                if len(suffix) > l_motif - 1 : 
                     continue
                 else :
                     concat = suffix.add_suffix(Arc(*sequence[start].inds, oriented=oriented_graph))
                     if concat not in counts.keys() : continue #Motif n'est pas dans les sous motifs que l'on recherche
                     else :
-                        counts[concat] -= counts[suffix] #Motif connu
+                        counts[concat] -= counts[suffix] #Motif issu de la concatenation connu
             start +=1
 
         # Increment counts
@@ -340,8 +393,55 @@ def count_instance_motif(sequence_raw: Sequence, motif: Motif, delta: int, orien
         for motif in submotifs : 
             dict_counts[motif].append(counts[motif])
 
-    return counts, dict_counts
-    
+    return counts, dict_counts, sequence
+
+
+
+def counts_interaction_sequence(sequence : list[Interaction]) -> dict[Arc, int] : 
+    """Counts the number of occurence of each arc of a given interaction sequence
+
+    Args:
+        sequence (list[Interaction]): interaction sequence
+
+    Returns:
+        dict[Arc, int]: Counts of each the number of each arc of the sequence 
+    """
+    counts_nb_interaction = Counter()
+    for interaction in sequence : 
+        arc = Arc(*interaction.inds, oriented=False)
+        counts_nb_interaction[arc] += 1
+
+    print(f" Total du comptage : {counts_nb_interaction.total()}")
+    print(f" Nombre d'interaction dans la séquence d'intéraction : {len(sequence)}")
+
+    if counts_nb_interaction.total() != len(sequence) : 
+        raise ValueError("Problème lors du comptage")
+
+    print(f" Nombre d'interactions différentes : {len(counts_nb_interaction)}")
+
+    return counts_nb_interaction
+
+
+
+def counts_instance_k_motif(size_motif : int, sequence_interactions : list[Interaction], delta : int) -> tuple[int, dict[Motif,int], list[Interaction]] :
+    """Generate the counts and the dictionnary of the counts for the motif generated by the k-most frequent arcs of the sequence
+
+    Args:
+        size_motif (int): size of the motif (the k most frequent arcs of the interaction sequence )
+        sequence_interactions (list[Interaction]): interaction sequence 
+        delta (int): delta for the counts
+
+    Returns:
+        tuple[int, dict[Motif,int], list[Interaction]]: Counts, dict_counts and filtered interaction sequence
+    """
+    counts_arcs = counts_interaction_sequence(sequence_interactions)  
+    k_most_common = counts_arcs.most_common(size_motif)
+    most_common_arcs = [arc for arc,count in k_most_common]
+    motif_batch = Motif(*most_common_arcs, oriented=False)
+    counts, dict_counts, sequence = count_instance_motif(sequence_raw=sequence_interactions, motif=motif_batch, delta=delta)
+
+    return counts, dict_counts, sequence
+
 #############################################################################
                         # Tests for the module
 #############################################################################
@@ -361,19 +461,19 @@ if __name__ == "__main__" :
         oriented= False)
 
     sequence = [
-        Interaction("a","b", date_init + timedelta(seconds=25)),
+        Interaction("c","a", date_init + timedelta(seconds=25)),
         Interaction("a","c", date_init + timedelta(seconds=17)),
-        Interaction("a","c", date_init + timedelta(seconds=28)),
+        Interaction("a","b", date_init + timedelta(seconds=28)),
         Interaction("a","c", date_init + timedelta(seconds=30)),
         Interaction("a","c", date_init + timedelta(seconds=35)),
         Interaction("c","a", date_init + timedelta(seconds=15)),
-        Interaction("c","a", date_init + timedelta(seconds=32)),
+        Interaction("a","c", date_init + timedelta(seconds=32)),
     ]
 
 
     # Dictionnaire de comptage qui a pour clé un motif (cf figure 2 du papier)
 
-    M1 = Motif(
+    M2 = Motif(
         Arc("a","b"),
         Arc("a","c"),
         Arc("b","c"),

@@ -1,0 +1,56 @@
+/Users/josephallyndree/miniconda3/envs/PFR_graph/bin/python /Users/josephallyndree/Dropbox/Joseph/A-PhD/
+TRACE_IODAA/TRACE_module/DTGC_main.py
+48
+epoch 0: avg loss = 5.488647a:0.99049515
+epoch 1: avg loss = 5.349019a:0.9799132
+epoch 2: avg loss = 5.535523a:0.96960177
+epoch 3: avg loss = 5.5169683:0.95910366
+epoch 4: avg loss = 5.3561497:0.94828054
+epoch 5: avg loss = 5.42701ta:0.93783545
+epoch 6: avg loss = 5.3753076:0.92724225
+epoch 7: avg loss = 5.452614a:0.91632675
+epoch 8: avg loss = 5.489984a:0.90617937
+epoch 9: avg loss = 5.4021587:0.89566745
+epoch 10: avg loss = 5.477429:0.88511334
+epoch 11: avg loss = 5.420885:0.87479255
+epoch 12: avg loss = 5.39863630.8647279
+epoch 13: avg loss = 5.39654640.8544426
+epoch 14: avg loss = 5.446lta:0.84390277
+epoch 15: avg loss = 5.40579840.83422975
+epoch 16: avg loss = 5.42425a:0.8238618
+epoch 17: avg loss = 5.40975430.81364965
+epoch 18: avg loss = 5.47386070.80325556
+epoch 19: avg loss = 5.363438:0.79312355
+epoch 20: avg loss = 5.35523650.78316286
+epoch 21: avg loss = 5.339316:0.77318746
+epoch 22: avg loss = 5.383194:0.76251787
+epoch 23: avg loss = 5.48632530.75235167
+epoch 24: avg loss = 5.410136:0.74167377
+epoch 25: avg loss = 5.51958040.73105246
+epoch 26: avg loss = 5.40501640.72100544
+epoch 27: avg loss = 5.42650460.71065634
+epoch 28: avg loss = 5.43945840.70015454
+epoch 29: avg loss = 5.33594560.69028354
+epoch 30: avg loss = 5.444785:0.68008757
+epoch 31: avg loss = 5.345611:0.66965556
+epoch 32: avg loss = 5.30306430.65915015
+epoch 33: avg loss = 5.41402050.64847737
+epoch 34: avg loss = 5.42018940.63804096
+epoch 35: avg loss = 5.43923430.62744986
+epoch 36: avg loss = 5.364813:0.61731887
+epoch 37: avg loss = 5.44283870.60663537
+epoch 38: avg loss = 5.403875:0.59622284
+epoch 39: avg loss = 5.43335960.58581994
+epoch 40: avg loss = 5.38275340.57553137
+epoch 41: avg loss = 5.42959830.56508857
+epoch 42: avg loss = 5.334503:0.55479455
+epoch 43: avg loss = 5.45249750.54461644
+epoch 44: avg loss = 5.427599:0.53387686
+epoch 45: avg loss = 5.42385a:0.52386856
+epoch 46: avg loss = 5.468839:0.51344913
+epoch 47: avg loss = 5.34360840.50302625
+epoch 48: avg loss = 5.48045830.49269596
+epoch 49: avg loss = 5.470065:0.48216677
+
+╭─    ~/Dropbox/Joseph/A-PhD/TRACE_IODAA    main !1 ?5                ✔  41m 34s   PFR_graph  
+╰─ 

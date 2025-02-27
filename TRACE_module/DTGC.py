@@ -1,75 +1,102 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-
+import os
 import numpy as np 
 import pandas as pd
 from sklearn.manifold import TSNE
 import matplotlib.pyplot as plt
 
 
-
-
-
 def create_file_x_y_t(stack: np.ndarray,
-                      list_timesteps:list[str]
-                      
-                      ):
+                        list_timesteps:list[str]
+                        ):
     """
+    Creates a temporal edge list format from a dynamic network represented as a stack of adjacency matrices.
     
+    Input : 
+        - stack (np.ndarray) : A 3D numpy array of shape (T, N, N) where:
+            - T is the number of time steps
+            - N is the number of nodes
+            Each slice stack[t,:,:] represents the adjacency matrix at time t
+        
+        - list_timesteps (list[str]) : a list of timestamps as strings, corresponding to each layer in the stack
+        
+    Returns : 
+        - txt (str) : A string containing the temporal edge list format where each line follows:
+        "source_node target_node normalized_time"
+            - source_node and target_node are indices of the nodes
+            - normalized_time is scaled between 0 and 1
     
+    Notes :
+    - Only upper triangular edges are kept (directed edges in one direction)
+    - Timestamps are normalized to [0,1] range
+    - Edge format: "i j t" where i,j are node indices and t is normalized time
     """
     
     serie_timestamp=pd.to_datetime(pd.Series(list_timesteps)).astype("int64")
     normalized_tstamp=(serie_timestamp - serie_timestamp.min())/(serie_timestamp.max()-serie_timestamp.min())
     
-    
     txt=""
     coord_triu=np.triu_indices(stack[0,:,:].shape[0],k=1)
     coord_triu=[(coord_triu[0][i],coord_triu[1][i]) for i in range(coord_triu[0].shape[0])]
-   
+
     for idx,val in normalized_tstamp.items() : 
-        
         coordonnees = np.argwhere(stack[idx,:,:]==1)
         
         for couple in coordonnees: 
-           
             if tuple(couple) in coord_triu: ## Pour n'avoir qu'une seule arrête, à enlever si on veut les arrêtes dans les deux sens
             
                 txt+="{} {} {} \n".format(*couple,val)
-        
-    
-    
     return txt
 
 
-def create_file_nodeId_label(list_id : list[str]
-                             ) : 
-    
+
+def create_file_nodeId_label(list_id : list[str]) : 
     """
+    Creates a node label file where each line contains a node ID and its label.
     
+    Input:
+        - list_id (list[str]): A list of node identifiers
+        
+    Returns:
+        - txt (str): A string containing node labels in the format:
+        "node_id label"
+            - node_id is the index of the node (0 to len(list_id)-1)
+            - label is set to 1 for all nodes (default label)
     
+    Notes:
+        - All nodes are assigned the same label (1)
+        - Node indices are generated sequentially starting from 0
+        - Each line follows the format: "i 1" where i is the node index
     """
-    
     
     txt = "" 
     for i in range(len(list_id)) : 
-         txt += "{} 1 \n".format(i) ### Nos noeuds ne sont pas annotés, on met l'étiquette 1 parotut 
+        txt += "{} 1 \n".format(i) ### Nos noeuds ne sont pas annotés, on met l'étiquette 1 parotut 
     
     return txt
 
 
+
 def convert_HTNE_embFile(path : str,
-                         skiprows_ : int,
-                         max_row : int 
-                         ):
-    
+                        max_row : int,
+                        skiprows : int = 1 
+                        ) -> np.ndarray:
     """
+    Loads and converts HTNE (Hierarchical Temporal Network Embedding) embedding file to numpy array.
     
-    
+    Input:
+        - path (str): Path to the HTNE embedding file
+        - max_row (int): Maximum number of rows to read from the file
+        - skiprows (int, default=1): Number of rows to skip at the beginning of the file
+        
+    Returns:
+        - np.ndarray: A numpy array containing the node embeddings where:
+            - Each row represents a node
+            - Each column represents a dimension of the embedding
     """
-    
-    return np.loadtxt(path,skiprows=1,max_rows=max_row)
+    return np.loadtxt(path,max_rows=max_row, skiprows=skiprows)
 
 
 def TSNE_show(matrix : np.matrix) : 
@@ -79,16 +106,13 @@ def TSNE_show(matrix : np.matrix) :
     
     scatter = plt.scatter(output[:, 0], output[:, 1], cmap="jet", alpha=0.7)
     
- 
     plt.colorbar(scatter, label="Classes")
     plt.title("Visualisation t-SNE des données")
     plt.xlabel("t-SNE 1")
     plt.ylabel("t-SNE 2")
     plt.show()
     
-        
-    
-    
+
 ###############################################################################
 ###############################################################################
 ###############################################################################
@@ -106,11 +130,8 @@ from torch.utils.data import Dataset
 
 FType = torch.FloatTensor
 LType = torch.LongTensor
-if torch.cuda.is_available(): 
-    DID = torch.cuda.current_device()
-    
-
-
+if torch.backends.mps.is_available(): 
+    DID = torch.device("mps")
     
 
 class HTNE_a:
@@ -128,17 +149,17 @@ class HTNE_a:
         self.data = HTNEDataSet(file_path, neg_size, hist_len, directed)
         self.node_dim = self.data.get_node_dim()
 
-        if torch.cuda.is_available():
-            with torch.cuda.device(DID):
+        if torch.backends.mps.is_available():
+            with torch.device("mps"):
                 self.node_emb = Variable(torch.from_numpy(np.random.uniform(
                     -1. / np.sqrt(self.node_dim), 1. / np.sqrt(self.node_dim), (self.node_dim, emb_size))).type(
-                    FType).cuda(), requires_grad=True)
+                    FType).to("mps"), requires_grad=True)
 
-                self.delta = Variable((torch.zeros(self.node_dim) + 1.).type(FType).cuda(), requires_grad=True)
+                self.delta = Variable((torch.zeros(self.node_dim) + 1.).type(FType).to("mps"), requires_grad=True)
 
                 self.att_param = Variable(torch.diag(torch.from_numpy(np.random.uniform(
                     -1. / np.sqrt(emb_size), 1. / np.sqrt(emb_size), (emb_size,))).type(
-                    FType).cuda()), requires_grad=True)
+                    FType).to("mps")), requires_grad=True)
         else:
             self.node_emb = Variable(torch.from_numpy(np.random.uniform(
                 -1. / np.sqrt(self.node_dim), 1. / np.sqrt(self.node_dim), (self.node_dim, emb_size))).type(
@@ -177,8 +198,8 @@ class HTNE_a:
         return p_lambda, n_lambda
 
     def loss_func(self, s_nodes, t_nodes, t_times, n_nodes, h_nodes, h_times, h_time_mask):
-        if torch.cuda.is_available():
-            with torch.cuda.device(DID):
+        if torch.backends.mps.is_available():
+            with torch.device("mps"):
                 p_lambdas, n_lambdas = self.forward(s_nodes, t_nodes, t_times, n_nodes, h_nodes, h_times, h_time_mask)
                 loss = -torch.log(p_lambdas.sigmoid() + 1e-6) - torch.log(
                     n_lambdas.neg().sigmoid() + 1e-6).sum(dim=1)
@@ -191,8 +212,8 @@ class HTNE_a:
         return loss
 
     def update(self, s_nodes, t_nodes, t_times, n_nodes, h_nodes, h_times, h_time_mask):
-        if torch.cuda.is_available():
-            with torch.cuda.device(DID):
+        if torch.backends.mps.is_available():
+            with torch.device("mps"):
                 self.opt.zero_grad()
                 loss = self.loss_func(s_nodes, t_nodes, t_times, n_nodes, h_nodes, h_times, h_time_mask)
                 loss = loss.sum()
@@ -209,7 +230,6 @@ class HTNE_a:
 
     def train(self):
         for epoch in range(self.epochs):
-           #
             self.loss = 0.0
             loader = DataLoader(self.data, batch_size=self.batch,
                                 shuffle=True, num_workers=5)
@@ -224,15 +244,15 @@ class HTNE_a:
                         self.delta.mean().cpu().data.numpy()))
                     sys.stdout.flush()
 
-                if torch.cuda.is_available():
-                    with torch.cuda.device(DID):
-                        self.update(sample_batched['source_node'].type(LType).cuda(),
-                                    sample_batched['target_node'].type(LType).cuda(),
-                                    sample_batched['target_time'].type(FType).cuda(),
-                                    sample_batched['neg_nodes'].type(LType).cuda(),
-                                    sample_batched['history_nodes'].type(LType).cuda(),
-                                    sample_batched['history_times'].type(FType).cuda(),
-                                    sample_batched['history_masks'].type(FType).cuda())
+                if torch.backends.mps.is_available():
+                    with torch.device("mps"):
+                        self.update(sample_batched['source_node'].type(LType).to("mps"),
+                                    sample_batched['target_node'].type(LType).to("mps"),
+                                    sample_batched['target_time'].type(FType).to("mps"),
+                                    sample_batched['neg_nodes'].type(LType).to("mps"),
+                                    sample_batched['history_nodes'].type(LType).to("mps"),
+                                    sample_batched['history_times'].type(FType).to("mps"),
+                                    sample_batched['history_masks'].type(FType).to("mps"))
                 else:
                     self.update(sample_batched['source_node'].type(LType),
                                 sample_batched['target_node'].type(LType),
@@ -243,13 +263,16 @@ class HTNE_a:
                                 sample_batched['history_masks'].type(FType))
 
             sys.stdout.write('\repoch ' + str(epoch) + ': avg loss = ' +
-                             str(self.loss.cpu().numpy() / len(self.data)) + '\n')
+                                str(self.loss.cpu().numpy() / len(self.data)) + '\n')
             sys.stdout.flush()
-
             self.save_node_embeddings('./emb/cows_htne_attn_%d.emb' % (epoch))
 
+
     def save_node_embeddings(self, path):
-        if torch.cuda.is_available():
+        
+        os.makedirs(os.path.dirname(path), exist_ok=True) 
+        
+        if torch.backends.mps.is_available():
             embeddings = self.node_emb.cpu().data.numpy()
         else:
             embeddings = self.node_emb.data.numpy()
@@ -257,10 +280,7 @@ class HTNE_a:
         writer.write('%d %d\n' % (self.node_dim, self.emb_size))
         for n_idx in range(self.node_dim):
             writer.write(' '.join(str(d) for d in embeddings[n_idx]) + '\n')
-
         writer.close()
-
-
 
 class HTNEDataSet(Dataset):
     def __init__(self, file_path, neg_size, hist_len, directed=False, transform=None):
@@ -269,7 +289,7 @@ class HTNEDataSet(Dataset):
         self.directed = directed
         self.transform = transform
 
-       # self.max_d_time = -sys.maxint  # Time interval [0, T]
+        # self.max_d_time = -sys.maxint  # Time interval [0, T]
         self.max_d_time = -sys.maxsize
         self.NEG_SAMPLING_POWER = 0.75
         self.neg_table_size = int(1e8)

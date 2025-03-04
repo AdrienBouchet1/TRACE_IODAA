@@ -6,6 +6,7 @@ from TRACE_module.utils import *
 import numpy as np
 from typing import List
 from collections import deque  # Pour l'algorithme BFS
+from collections import defaultdict
 #############################################################################
                         # Types definition
 #############################################################################
@@ -211,20 +212,93 @@ class Motif:
         """
         pass
 
-    def gen_submotif(self):
-        """Fonction du génére l'ensemble des sous motifs du motif
+    
+    def gen_submotif(self, max_edges=10, filter_func=None):
+        """Génère un sous-ensemble limité des sous-motifs du graphe, avec possibilité de filtrer.
+
+        Args:
+            max_edges (int, optional): Taille max des sous-motifs à générer. 
+                                    Si None, génère tous les sous-motifs.
+            filter_func (callable, optional): Fonction qui prend un `Motif` en argument 
+                                            et retourne True si on garde le sous-motif.
 
         Returns:
-            list[Motif] : liste des sous motifs (ne contient pas le motif nul, et contient le motif lui même)
+            list[Motif]: Liste des sous-motifs filtrés.
         """
-        list_sub_motif = [] #Liste qui va contenir les sous motifs 
-        if self._oriented : 
-            sub_seq_keys = subset_int_consecutif([i for i in range(len(self._list_arc))]) # On récupère les clées de tous les sous motifs
-        else :
-            sub_seq_keys = subset_int([i for i in range(len(self._list_arc))])
-        for list_keys in sub_seq_keys : 
-            list_sub_motif.append(Motif(*[self._list_arc[key] for key in list_keys], oriented= self._oriented)) # Instanciation des motifs à partir des arc
+        list_sub_motif = []  # Liste des sous-motifs
+        num_edges = len(self._list_arc)
+
+        if max_edges is not None:
+            max_edges = min(max_edges, num_edges)  # Évite de dépasser le nombre total d'arêtes
+
+        for k in tqdm(range(1, max_edges + 1)):  # Taille des sous-motifs de 1 à max_edges
+            for subset in combinations(self._list_arc, k):
+                submotif = Motif(*subset, oriented=self._oriented)
+                
+                # Appliquer le filtre si fourni
+                if filter_func is None or filter_func(submotif):
+                    list_sub_motif.append(submotif)
+
         return list_sub_motif
+    
+    def is_chain(self):
+        """Vérifie si le motif est une chaîne.
+
+        Returns:
+            bool: True si le graphe est une chaîne, False sinon.
+        """
+        # Récupération des sommets et de leur degré (nombre de connexions)
+        degree = defaultdict(int)
+        for arc in self._list_arc:
+            degree[arc.ind1] += 1
+            degree[arc.ind2] += 1
+
+        # Nombre total de sommets
+        n = len(degree)
+
+        # Cas particulier : si le graphe est vide ou n'a qu'un seul sommet
+        if n == 0 or n == 1:
+            return False  # Pas une chaîne
+
+        # On compte les sommets de degré 1 et 2
+        count_deg_1 = sum(1 for d in degree.values() if d == 1)
+        count_deg_2 = sum(1 for d in degree.values() if d == 2)
+
+        # Une chaîne doit avoir exactement 2 sommets de degré 1 et tous les autres de degré 2
+        return count_deg_1 == 2 and count_deg_2 == (n - 2)
+
+
+    def is_connexe(self):
+        """Vérifie si le graphe est connexe.
+
+        Returns:
+            bool: True si le graphe est connexe, False sinon.
+        """
+        # Récupérer les sommets du graphe
+        nodes = set()
+        for arc in self._list_arc:
+            nodes.add(arc.ind1)
+            nodes.add(arc.ind2)
+
+        if not nodes:
+            return True  # Un graphe vide est considéré comme connexe
+
+        # Initialisation du parcours
+        visited = set()
+        to_visit = [next(iter(nodes))]  # Démarrer à partir d'un sommet arbitraire
+
+        while to_visit:
+            node = to_visit.pop()
+            if node not in visited:
+                visited.add(node)
+                # Ajouter les voisins non visités
+                neighbors = {arc.ind2 for arc in self._list_arc if arc.ind1 == node}
+                if not self._oriented:  # Si le graphe n'est pas orienté, ajouter l'autre sens
+                    neighbors.update({arc.ind1 for arc in self._list_arc if arc.ind2 == node})
+                to_visit.extend(neighbors - visited)
+
+        return len(visited) == len(nodes)  # Si tous les nœuds ont été visités, le graphe est connexe
+
 
     def connected_components(self):
         """
@@ -288,6 +362,42 @@ class Motif:
             nodes.add(arc.ind1)
             nodes.add(arc.ind2)
         return list(nodes)
+
+    def density(self):
+        """Calcule la densité du motif (graphe).
+
+        Returns:
+            float: Densité du graphe (entre 0 et 1)
+        """
+        # Récupération des sommets uniques
+        nodes = set()
+        for arc in self._list_arc:
+            nodes.add(arc.ind1)
+            nodes.add(arc.ind2)
+
+        # Nombre de sommets et d'arcs
+        n = len(nodes)
+        m = len(self._list_arc)
+
+        # Cas d'un graphe vide (éviter division par zéro)
+        if n < 2:
+            return 0.0
+
+        # Formule de densité
+        max_edges = n * (n - 1) if self._oriented else (n * (n - 1)) // 2
+        return m / max_edges
+    
+    def is_subgraph(self, other):
+        """Vérifie si le graphe actuel est un sous-graphe d'un autre graphe.
+
+        Args:
+            other (Motif): Le graphe dans lequel on vérifie si `self` est un sous-graphe.
+
+        Returns:
+            bool: True si `self` est un sous-graphe de `other`, False sinon.
+        """
+        # Vérifier que tous les arcs de self sont dans other
+        return all(arc in other._list_arc for arc in self._list_arc)
 
         
 
